@@ -1,4 +1,6 @@
+import HudHeader from "@/components/HudHeader";
 import MapScene from "@/components/MapScene";
+import TakeControlButton from "@/components/TakeControlButton";
 
 type HomeProps = {
   searchParams: { hour?: string };
@@ -15,6 +17,15 @@ export default function Home({ searchParams }: HomeProps) {
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-[#05050A]">
       <MapScene hourOverride={parseHour(searchParams.hour)} />
+
+      {/* HUD – never intercepts the canvas; only its controls opt back in. Palette follows day/night. */}
+      <div className="pointer-events-none absolute inset-0 z-10 select-none">
+        <HudHeader />
+
+        <div className="absolute right-4 top-4 sm:right-7 sm:top-5">
+          <TakeControlButton />
+        </div>
+      </div>
     </main>
   );
 }
