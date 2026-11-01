@@ -10,6 +10,9 @@ type ArafaState = {
   /** Gives the camera back to the cinematic sequence. */
   resumeCinematic: () => void;
   setIsDay: (isDay: boolean) => void;
+  /** Instance id (= index in BLUEPRINT_LAYOUT) of the selected tent, or null. */
+  selectedTentId: number | null;
+  selectTent: (id: number | null) => void;
 };
 
 export const useArafaStore = create<ArafaState>((set) => ({
@@ -20,4 +23,6 @@ export const useArafaStore = create<ArafaState>((set) => ({
   resumeCinematic: () => set({ cinematicMode: true }),
   // Bail out when unchanged so the 10 s clock tick never re-renders subscribers.
   setIsDay: (isDay) => set((s) => (s.isDay === isDay ? s : { isDay })),
+  selectedTentId: null,
+  selectTent: (id) => set((s) => (s.selectedTentId === id ? s : { selectedTentId: id })),
 }));

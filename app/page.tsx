@@ -1,5 +1,6 @@
 import HudHeader from "@/components/HudHeader";
 import MapScene from "@/components/MapScene";
+import TacticalHUD from "@/components/TacticalHUD";
 import TakeControlButton from "@/components/TakeControlButton";
 
 type HomeProps = {
@@ -25,6 +26,8 @@ export default function Home({ searchParams }: HomeProps) {
         <div className="absolute right-4 top-4 sm:right-7 sm:top-5">
           <TakeControlButton />
         </div>
+
+        <TacticalHUD />
       </div>
     </main>
   );

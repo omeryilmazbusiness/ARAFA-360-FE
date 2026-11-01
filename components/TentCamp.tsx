@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
+import { useArafaStore } from "@/store/useArafaStore";
 import { SANITARY_COUNT, buildSanitaryMatrices, buildTentBuffers } from "@/utils/campLayout";
 
 export const TENT_MODEL_URL = "/models/tent.glb";
@@ -11,6 +13,15 @@ export const TENT_MODEL_URL = "/models/tent.glb";
 const CANVAS_COLOR = "#e5e5e0";
 const CANVAS_ROUGHNESS = 0.95;
 const CANVAS_METALNESS = 0.0;
+
+/**
+ * Selection highlight: an `instanceColor` multiplier (it multiplies the canvas colour). A pale,
+ * slightly luminous ice-white – cooler and a touch brighter than the warm canvas, never saturated,
+ * so it reads as architectural emphasis rather than a pointer.
+ */
+const HIGHLIGHT_RGB = [0.82, 1.0, 1.1] as const;
+/** Seconds the highlight takes to fade in / out. */
+const HIGHLIGHT_FADE_S = 0.5;
 
 /**
  * `tent.glb` is a Maya export with three meshes and no materials: two identical thin pole frames
@@ -111,9 +122,78 @@ export default function TentCamp() {
   const sanitaryMaterial = useMemo(createSanitaryMaterial, []);
 
   useLayoutEffect(() => {
-    if (roofRef.current) initInstances(roofRef.current, camp.roofMatrices, camp.count, camp.tints);
-    if (wallsRef.current) initInstances(wallsRef.current, camp.wallMatrices, camp.count, camp.tints);
+    // Each mesh gets its own colour buffer (setColorAt writes into it); `camp.tints` stays the
+    // pristine per-tent base colour that the highlight blends from and back to.
+    if (roofRef.current) initInstances(roofRef.current, camp.roofMatrices, camp.count, camp.tints.slice());
+    if (wallsRef.current) initInstances(wallsRef.current, camp.wallMatrices, camp.count, camp.tints.slice());
   }, [camp, geometry, walls]);
+
+  // ── Selection highlight ────────────────────────────────────────────────────────────────────
+  // Driven by a plain Zustand subscription + useFrame: selecting a tent touches two colour
+  // attributes and nothing else – React (and therefore the Canvas tree) never re-renders.
+  const blends = useRef(new Map<number, { t: number; target: 0 | 1 }>());
+  const scratch = useRef(new THREE.Color());
+
+  useEffect(() => {
+    const retarget = (id: number | null, target: 0 | 1) => {
+      if (id === null) return;
+      const entry = blends.current.get(id);
+      if (entry) entry.target = target;
+      else if (target === 1) blends.current.set(id, { t: 0, target });
+    };
+    return useArafaStore.subscribe((state, prev) => {
+      if (state.selectedTentId === prev.selectedTentId) return;
+      retarget(prev.selectedTentId, 0);
+      retarget(state.selectedTentId, 1);
+    });
+  }, []);
+
+  useFrame((_, delta) => {
+    const map = blends.current;
+    if (map.size === 0) return;
+    const roof = roofRef.current;
+    const wall = wallsRef.current;
+    if (!roof?.instanceColor || !wall?.instanceColor) return;
+
+    const step = Math.min(delta, 0.1) / HIGHLIGHT_FADE_S;
+    let dirty = false;
+    map.forEach((entry, id) => {
+      const goal = entry.target;
+      if (entry.t === goal) return; // settled – nothing to write
+      entry.t = goal === 1 ? Math.min(1, entry.t + step) : Math.max(0, entry.t - step);
+      const k = entry.t * entry.t * (3 - 2 * entry.t); // smoothstep
+      const base = camp.tints;
+      scratch.current.setRGB(
+        base[id * 3] + (HIGHLIGHT_RGB[0] - base[id * 3]) * k,
+        base[id * 3 + 1] + (HIGHLIGHT_RGB[1] - base[id * 3 + 1]) * k,
+        base[id * 3 + 2] + (HIGHLIGHT_RGB[2] - base[id * 3 + 2]) * k
+      );
+      roof.setColorAt(id, scratch.current);
+      wall.setColorAt(id, scratch.current);
+      dirty = true;
+      if (entry.t === 0 && goal === 0) map.delete(id);
+    });
+    if (dirty) {
+      roof.instanceColor.needsUpdate = true;
+      wall.instanceColor.needsUpdate = true;
+    }
+  });
+
+  // ── Picking ────────────────────────────────────────────────────────────────────────────────
+  // R3F only fires onClick for a real click (not the end of an orbit drag).
+  const onSelect = (e: ThreeEvent<MouseEvent>) => {
+    if (e.instanceId === undefined) return;
+    e.stopPropagation();
+    useArafaStore.getState().selectTent(e.instanceId);
+  };
+  const onOver = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    document.body.style.cursor = "pointer";
+  };
+  const onOut = () => {
+    document.body.style.cursor = "";
+  };
+  useEffect(() => onOut, []);
 
   useLayoutEffect(() => {
     if (sanitaryRef.current) initInstances(sanitaryRef.current, sanitaryMatrices, SANITARY_COUNT);
@@ -133,6 +213,9 @@ export default function TentCamp() {
         args={[geometry, material, camp.count]}
         castShadow
         receiveShadow
+        onClick={onSelect}
+        onPointerOver={onOver}
+        onPointerOut={onOut}
       />
       <instancedMesh
         key={walls.uuid}
@@ -140,6 +223,9 @@ export default function TentCamp() {
         args={[walls, material, camp.count]}
         castShadow
         receiveShadow
+        onClick={onSelect}
+        onPointerOver={onOver}
+        onPointerOut={onOut}
       />
       <instancedMesh
         key={`${walls.uuid}-sanitary`}

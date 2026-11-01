@@ -1,7 +1,7 @@
 // Self-test of the blueprint tent camp (pure maths, no browser).  Run: npm run check:camp
 import {
   BLUEPRINT_LAYOUT, BLUEPRINT_ORIGIN, GROUND_Y, METERS_TO_UNITS, SANITARY_COUNT, SANITARY_LAYOUT, TENT_COUNT,
-  WALL_HEIGHT_M, buildSanitaryMatrices, buildTentBuffers, mountainFootprintRadius, toWorldFootprint,
+  WALL_HEIGHT_M, buildSanitaryMatrices, getTentInfo, buildTentBuffers, mountainFootprintRadius, toWorldFootprint,
 } from "../utils/campLayout.ts";
 
 let failed = 0;
@@ -92,6 +92,29 @@ for (const { b } of all) {
   }
 }
 check("mountain clearance ≥ 1 unit (25 m)", minClear >= 1, `min ${minClear.toFixed(2)} units = ${(minClear * U).toFixed(0)} m`);
+
+// 7. HUD metadata: hardcoded zone / capacity / number on every tent
+const ZONE_NAMES = new Set(["KHADIJA", "MAIRA", "FATEH", "NAAFY", "KAFEEL", "AFUW", "IBRAHIM", "BARR", "QUDDUS", "ASSALAM", "UNASSIGNED"]);
+const nos = new Set<string>();
+let badInfo = 0;
+for (let i = 0; i < TENT_COUNT; i++) {
+  const info = getTentInfo(i);
+  const t = BLUEPRINT_LAYOUT[i];
+  const capOk = t.capacity === null || (Number.isInteger(t.capacity) && t.capacity > 0);
+  if (!info || t.no !== i + 1 || !ZONE_NAMES.has(t.zone) || !capOk || info.zone !== t.zone || info.capacity !== t.capacity
+    || info.tentNo !== String(i + 1) || !/^\d+ × \d+ m$/.test(info.dims)) badInfo++;
+  else nos.add(info.tentNo);
+}
+check("60 tents numbered 1–60 in order", TENT_COUNT === 60 && BLUEPRINT_LAYOUT.every((t, i) => t.no === i + 1));
+check("every tent has hardcoded zone, capacity and a unique number", badInfo === 0 && nos.size === TENT_COUNT, `${nos.size} unique numbers`);
+const zoneStats: Record<string, string> = {};
+for (const z of ZONE_NAMES) {
+  const ts = BLUEPRINT_LAYOUT.filter((t) => t.zone === z);
+  zoneStats[z] = `${ts.length} tents, ${ts.reduce((s, t) => s + (t.capacity ?? 0), 0)} hajj`;
+}
+console.log("      zones:", JSON.stringify(zoneStats));
+check("zone assignment from the master blueprint", [1, 3].every((n) => BLUEPRINT_LAYOUT[n - 1].zone === "MAIRA") && [55, 56, 57, 58, 60].every((n) => BLUEPRINT_LAYOUT[n - 1].zone === "ASSALAM") && BLUEPRINT_LAYOUT[12].capacity === 309);
+check("getTentInfo rejects invalid ids", getTentInfo(-1) === null && getTentInfo(TENT_COUNT) === null);
 
 const area = BLUEPRINT_LAYOUT.reduce((s, t) => s + t.width * t.depth, 0);
 const xs = all.flatMap(({ b }) => [b.x - b.width / 2, b.x + b.width / 2]);

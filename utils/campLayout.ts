@@ -27,64 +27,112 @@ export type BlueprintBuilding = {
   z: number;
 };
 
+/** Zones printed on the master blueprint (`IMG_2236.jpg`). */
+export type ZoneName =
+  | "KHADIJA" | "MAIRA" | "FATEH" | "NAAFY" | "KAFEEL" | "AFUW" | "IBRAHIM" | "BARR" | "QUDDUS" | "ASSALAM"
+  /** Olive-coloured buildings of the master blueprint that carry no zone / hajj count. */
+  | "UNASSIGNED";
+
+export type BlueprintTent = BlueprintBuilding & {
+  /** Tent number printed on the master blueprint (1–60). Always `index + 1`. */
+  no: number;
+  zone: ZoneName;
+  /** Hardcoded hajj count printed on the master blueprint; `null` = not printed / unreadable. */
+  capacity: number | null;
+};
+
 /**
- * Every tent of the blueprint (46). Trailing comments are the labels printed on the plan
- * (long × short side). Rows of tents share the same z, columns keep the plan's ~4.5 m walkways,
- * the 6–10 m avenues between the macro-blocks are the empty bands between the groups below.
+ * Every tent of the master blueprint (60), ordered by tent number, so the instance id of a tent
+ * is always `no - 1`. `zone` and `capacity` are hardcoded straight from `IMG_2236.jpg` – nothing is
+ * derived from the footprint. Trailing comments = label on the plan (long × short side). Tents
+ * 1–46 / 48 are the tent-plan.JPG footprints; 47–60 were placed from the master blueprint.
  */
-export const BLUEPRINT_LAYOUT: readonly BlueprintBuilding[] = [
-  // North strip
-  { width: 15, depth: 25, x: -74.0, z: -133.0 }, // 25x15
-  { width: 15, depth: 25, x: -55.0, z: -133.0 }, // 25x15
-  { width: 15, depth: 25, x: -15.0, z: -105.0 }, // 25x15
-  { width: 15, depth: 15, x: -74.5, z: -106.0 }, // 15x15
-  { width: 10, depth: 20, x: -32.0, z: -103.0 }, // 10x20
-  { width: 5, depth: 25, x: -90.0, z: -101.0 }, // 5x25
-  { width: 20, depth: 10, x: -38.5, z: -78.0 }, // 10x20
-  { width: 5, depth: 10, x: -6.5, z: -73.5 }, // 5x10
-  { width: 20, depth: 15, x: -38.5, z: -57.0 }, // 15x20
-  { width: 20, depth: 10, x: -11.5, z: -54.5 }, // 10x20
-  { width: 25, depth: 5, x: -64.5, z: -54.0 }, // 5x25
-  // Upper block
-  { width: 10, depth: 25, x: -93.0, z: -32.0 }, // 10x25
-  { width: 15, depth: 25, x: -76.0, z: -32.0 }, // 25x15
-  { width: 15, depth: 25, x: -56.5, z: -32.0 }, // 25x15
-  { width: 15, depth: 25, x: -37.0, z: -32.0 }, // 25x15
-  { width: 15, depth: 25, x: -18.0, z: -32.0 }, // 25x15
-  { width: 10, depth: 10, x: -105.5, z: -31.0 }, // 10x10
-  { width: 5, depth: 15, x: -4.0, z: -37.5 }, // 5x15
-  // Middle block
-  { width: 10, depth: 25, x: -114.5, z: 0.0 }, // 10x25
-  { width: 15, depth: 25, x: -96.5, z: 0.0 }, // 25x15
-  { width: 15, depth: 25, x: -77.0, z: 0.0 }, // 25x15
-  { width: 15, depth: 25, x: -57.5, z: 0.0 }, // 25x15
-  { width: 15, depth: 15, x: -38.0, z: -5.0 }, // 15x15
-  { width: 20, depth: 15, x: -12.5, z: -2.5 }, // 15x20
-  { width: 15, depth: 10, x: -36.5, z: 11.0 }, // 10x15
-  { width: 10, depth: 25, x: -79.0, z: 34.5 }, // 10x25
-  { width: 5, depth: 25, x: -91.0, z: 34.5 }, // 5x25
-  { width: 15, depth: 25, x: -38.5, z: 34.5 }, // 25x15
-  { width: 20, depth: 10, x: -14.5, z: 43.5 }, // 10x20
-  // Lower block
-  { width: 15, depth: 20, x: -109.0, z: 67.0 }, // 15x20
-  { width: 5, depth: 20, x: -90.5, z: 67.0 }, // 5x20
-  { width: 15, depth: 20, x: -77.5, z: 67.0 }, // 15x20
-  { width: 15, depth: 20, x: -58.0, z: 67.0 }, // 15x20
-  { width: 15, depth: 20, x: -39.0, z: 67.0 }, // 15x20
-  { width: 20, depth: 10, x: -11.0, z: 76.5 }, // 10x20
-  // South strip
-  { width: 15, depth: 25, x: -109.5, z: 100.0 }, // 25x15
-  { width: 5, depth: 15, x: -92.0, z: 93.5 }, // 5x15
-  { width: 15, depth: 10, x: -76.5, z: 92.0 }, // 10x15
-  { width: 15, depth: 25, x: -59.0, z: 100.0 }, // 25x15
-  { width: 5, depth: 15, x: -71.0, z: 105.5 }, // 5x15
-  { width: 15, depth: 25, x: -39.5, z: 100.0 }, // 25x15
-  { width: 15, depth: 25, x: -20.5, z: 100.0 }, // 25x15
-  { width: 15, depth: 25, x: -60.0, z: 133.0 }, // 25x15
-  { width: 15, depth: 25, x: -40.5, z: 133.0 }, // 25x15
-  { width: 15, depth: 25, x: -21.0, z: 133.0 }, // 25x15
-  { width: 15, depth: 15, x: -79.0, z: 138.5 }, // 15x15
+export const BLUEPRINT_LAYOUT: readonly BlueprintTent[] = [
+  { no: 1, zone: "MAIRA", capacity: 97, width: 5, depth: 25, x: -90.0, z: -101.0 }, // 25x5
+  { no: 2, zone: "KHADIJA", capacity: 180, width: 15, depth: 15, x: -74.5, z: -106.0 }, // 15x15
+  { no: 3, zone: "MAIRA", capacity: 310, width: 15, depth: 25, x: -74.0, z: -133.0 }, // 25x15
+  { no: 4, zone: "KHADIJA", capacity: 300, width: 15, depth: 25, x: -55.0, z: -133.0 }, // 25x15
+  { no: 5, zone: "FATEH", capacity: 160, width: 10, depth: 20, x: -32.0, z: -103.0 }, // 20x10
+  { no: 6, zone: "FATEH", capacity: 300, width: 15, depth: 25, x: -15.0, z: -105.0 }, // 25x15
+  { no: 7, zone: "FATEH", capacity: 61, width: 5, depth: 10, x: -6.5, z: -73.5 }, // 10x5
+  { no: 8, zone: "FATEH", capacity: 160, width: 20, depth: 10, x: -38.5, z: -78.0 }, // 20x10
+  { no: 9, zone: "FATEH", capacity: 228, width: 20, depth: 15, x: -38.5, z: -57.0 }, // 20x15
+  { no: 10, zone: "FATEH", capacity: 95, width: 25, depth: 5, x: -64.5, z: -54.0 }, // 25x5
+  { no: 11, zone: "NAAFY", capacity: 150, width: 20, depth: 10, x: -11.5, z: -54.5 }, // 20x10
+  { no: 12, zone: "FATEH", capacity: 55, width: 5, depth: 15, x: -4.0, z: -37.5 }, // 15x5
+  { no: 13, zone: "NAAFY", capacity: 309, width: 15, depth: 25, x: -18.0, z: -32.0 }, // 25x15
+  { no: 14, zone: "NAAFY", capacity: 310, width: 15, depth: 25, x: -37.0, z: -32.0 }, // 25x15
+  { no: 15, zone: "NAAFY", capacity: 310, width: 15, depth: 25, x: -56.5, z: -32.0 }, // 25x15
+  { no: 16, zone: "NAAFY", capacity: 310, width: 15, depth: 25, x: -76.0, z: -32.0 }, // 25x15
+  { no: 17, zone: "NAAFY", capacity: 200, width: 10, depth: 25, x: -93.0, z: -32.0 }, // 25x10
+  { no: 18, zone: "UNASSIGNED", capacity: null, width: 10, depth: 10, x: -105.5, z: -31.0 }, // 10x10
+  { no: 19, zone: "UNASSIGNED", capacity: null, width: 20, depth: 15, x: -12.5, z: -2.5 }, // 20x15
+  { no: 20, zone: "UNASSIGNED", capacity: null, width: 15, depth: 15, x: -38.0, z: -5.0 }, // 15x15
+  { no: 21, zone: "AFUW", capacity: 82, width: 15, depth: 10, x: -36.5, z: 11.0 }, // 15x10
+  { no: 22, zone: "KAFEEL", capacity: 326, width: 15, depth: 25, x: -57.5, z: 0.0 }, // 25x15
+  { no: 23, zone: "KAFEEL", capacity: 307, width: 15, depth: 25, x: -77.0, z: 0.0 }, // 25x15
+  { no: 24, zone: "NAAFY", capacity: 200, width: 10, depth: 25, x: -114.5, z: 0.0 }, // 25x10
+  { no: 25, zone: "KAFEEL", capacity: 300, width: 15, depth: 25, x: -96.5, z: 0.0 }, // 25x15
+  { no: 26, zone: "AFUW", capacity: 310, width: 15, depth: 25, x: -38.5, z: 34.5 }, // 25x15
+  { no: 27, zone: "IBRAHIM", capacity: 250, width: 10, depth: 25, x: -79.0, z: 34.5 }, // 25x10
+  { no: 28, zone: "IBRAHIM", capacity: 91, width: 5, depth: 25, x: -91.0, z: 34.5 }, // 25x5
+  { no: 29, zone: "UNASSIGNED", capacity: null, width: 20, depth: 10, x: -14.5, z: 43.5 }, // 20x10
+  { no: 30, zone: "AFUW", capacity: 158, width: 20, depth: 10, x: -11.0, z: 76.5 }, // 20x10
+  { no: 31, zone: "AFUW", capacity: 250, width: 15, depth: 20, x: -39.0, z: 67.0 }, // 20x15
+  { no: 32, zone: "AFUW", capacity: 250, width: 15, depth: 20, x: -58.0, z: 67.0 }, // 20x15
+  { no: 33, zone: "IBRAHIM", capacity: 250, width: 15, depth: 20, x: -77.5, z: 67.0 }, // 20x15
+  { no: 34, zone: "IBRAHIM", capacity: 82, width: 5, depth: 20, x: -90.5, z: 67.0 }, // 20x5
+  { no: 35, zone: "IBRAHIM", capacity: 250, width: 15, depth: 20, x: -109.0, z: 67.0 }, // 20x15
+  { no: 36, zone: "AFUW", capacity: 300, width: 15, depth: 25, x: -20.5, z: 100.0 }, // 25x15
+  { no: 37, zone: "AFUW", capacity: 300, width: 15, depth: 25, x: -39.5, z: 100.0 }, // 25x15
+  { no: 38, zone: "AFUW", capacity: 300, width: 15, depth: 25, x: -59.0, z: 100.0 }, // 25x15
+  { no: 39, zone: "QUDDUS", capacity: 100, width: 15, depth: 10, x: -76.5, z: 92.0 }, // 15x10
+  { no: 40, zone: "QUDDUS", capacity: 55, width: 5, depth: 15, x: -71.0, z: 105.5 }, // 15x5
+  { no: 41, zone: "QUDDUS", capacity: 55, width: 5, depth: 15, x: -92.0, z: 93.5 }, // 15x5
+  { no: 42, zone: "QUDDUS", capacity: 280, width: 15, depth: 25, x: -109.5, z: 100.0 }, // 25x15
+  { no: 43, zone: "BARR", capacity: 305, width: 15, depth: 25, x: -21.0, z: 133.0 }, // 25x15
+  { no: 44, zone: "BARR", capacity: 306, width: 15, depth: 25, x: -40.5, z: 133.0 }, // 25x15
+  { no: 45, zone: "BARR", capacity: 306, width: 15, depth: 25, x: -60.0, z: 133.0 }, // 25x15
+  { no: 46, zone: "QUDDUS", capacity: 170, width: 15, depth: 15, x: -79.0, z: 138.5 }, // 15x15
+  { no: 47, zone: "QUDDUS", capacity: 55, width: 5, depth: 15, x: -93.0, z: 136.0 }, // 15x5
+  { no: 48, zone: "QUDDUS", capacity: 280, width: 15, depth: 25, x: -109.5, z: 133.0 }, // 25x15
+  { no: 49, zone: "BARR", capacity: 306, width: 15, depth: 25, x: -40.5, z: 166.0 }, // 25x15
+  { no: 50, zone: "BARR", capacity: 309, width: 15, depth: 25, x: -60.0, z: 166.0 }, // 25x15
+  { no: 51, zone: "BARR", capacity: 310, width: 15, depth: 25, x: -80.5, z: 166.0 }, // 25x15
+  { no: 52, zone: "QUDDUS", capacity: 95, width: 5, depth: 25, x: -94.0, z: 166.0 }, // 25x5
+  { no: 53, zone: "QUDDUS", capacity: 280, width: 15, depth: 25, x: -109.5, z: 166.0 }, // 25x15
+  { no: 54, zone: "BARR", capacity: null, width: 10, depth: 5, x: -17.5, z: 177.0 }, // 10x5
+  { no: 55, zone: "ASSALAM", capacity: 286, width: 15, depth: 25, x: -21.0, z: 199.0 }, // 25x15
+  { no: 56, zone: "ASSALAM", capacity: 286, width: 15, depth: 25, x: -40.5, z: 199.0 }, // 25x15
+  { no: 57, zone: "ASSALAM", capacity: 286, width: 15, depth: 25, x: -60.0, z: 199.0 }, // 25x15
+  { no: 58, zone: "ASSALAM", capacity: 286, width: 15, depth: 25, x: -80.5, z: 199.0 }, // 25x15
+  { no: 59, zone: "QUDDUS", capacity: 65, width: 5, depth: 25, x: -94.0, z: 199.0 }, // 25x5
+  { no: 60, zone: "ASSALAM", capacity: 283, width: 15, depth: 25, x: -109.5, z: 199.0 }, // 25x15
 ];
+
+export type TentInfo = {
+  zone: ZoneName;
+  /** Tent number on the master blueprint, as text (e.g. "13"). */
+  tentNo: string;
+  /** Hardcoded capacity in pilgrims; `null` when the blueprint prints none. */
+  capacity: number | null;
+  /** Footprint: long × short side, metres. */
+  dims: string;
+  areaM2: number;
+};
+
+/** Metadata of tent `index` (= instance id) of `BLUEPRINT_LAYOUT`. */
+export function getTentInfo(index: number): TentInfo | null {
+  const tent = BLUEPRINT_LAYOUT[index];
+  if (!tent) return null;
+  return {
+    zone: tent.zone,
+    tentNo: String(tent.no),
+    capacity: tent.capacity,
+    dims: `${Math.max(tent.width, tent.depth)} × ${Math.min(tent.width, tent.depth)} m`,
+    areaM2: tent.width * tent.depth,
+  };
+}
 
 /** Sanitary blocks (the cyan strips of the plan, ~4 × 18.5 m). Not tents: rendered separately. */
 export const SANITARY_LAYOUT: readonly BlueprintBuilding[] = [
@@ -98,10 +146,10 @@ export const SANITARY_LAYOUT: readonly BlueprintBuilding[] = [
 
 /**
  * Where the blueprint origin lands in the world (units). The plan's east edge faces the mountain
- * and keeps ≈ 1.2 units (≈ 30 m) of clear ground to the rock; the plan is centred on z = 0. It sits
+ * and keeps ≈ 1.2 units (≈ 30 m) of clear ground to the rock; the plan (z -146 … +212 m) is centred on z ≈ 0. It sits
  * on the west side so the stairway fly-through (east side) stays unobstructed.
  */
-export const BLUEPRINT_ORIGIN = { x: -6.5, z: 0 } as const;
+export const BLUEPRINT_ORIGIN = { x: -6.5, z: -1.3 } as const;
 
 /** Resting height: a hair above the ground plane so the bases never z-fight with it. */
 export const GROUND_Y = 0.002;
