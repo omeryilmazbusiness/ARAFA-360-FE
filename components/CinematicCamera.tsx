@@ -1,6 +1,6 @@
 "use client";
 
-import { type ComponentRef, useEffect, useRef } from "react";
+import { type ComponentRef, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import type { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
@@ -15,7 +15,7 @@ import {
 } from "@/utils/cinematicSequence";
 
 /** Keeps the manual camera above the ground plane (tilt limit). */
-export const MAX_POLAR_ANGLE = Math.PI / 2 - 0.05;
+export const MAX_POLAR_ANGLE = Math.PI / 2 - 0.02;
 /** Closest the manual camera may get to its target (units; 1 unit = 25 m). */
 export const MIN_DISTANCE = 0.5;
 /** How fast (1/s) the polar / distance limits are re-imposed after a hand-over that violates them. */
@@ -62,23 +62,6 @@ export default function CinematicCamera() {
   const pose = useRef(makePose());
   const scratch = useRef(makePose());
   const eased = useRef(makePose());
-
-  // The cinematic owns the camera with OrbitControls disabled, so the first touch of the canvas
-  // (press or wheel) hands the view to the user – otherwise the scene feels "locked" until the
-  // Take-control pill is found. The gesture that triggers it only hands over; the next one navigates.
-  const gl = useThree((s) => s.gl);
-  useEffect(() => {
-    const el = gl.domElement;
-    const handOver = () => {
-      if (useArafaStore.getState().cinematicMode) useArafaStore.getState().takeControl();
-    };
-    el.addEventListener("pointerdown", handOver, { passive: true });
-    el.addEventListener("wheel", handOver, { passive: true });
-    return () => {
-      el.removeEventListener("pointerdown", handOver);
-      el.removeEventListener("wheel", handOver);
-    };
-  }, [gl]);
 
   useFrame((state, delta) => {
     if (!useArafaStore.getState().cinematicMode) {

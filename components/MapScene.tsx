@@ -8,7 +8,6 @@ import * as THREE from "three";
 import HologramMountain from "./HologramMountain";
 import TacticalGround from "./TacticalGround";
 import TentCamp from "./TentCamp";
-import DoubleClickZoom from "./DoubleClickZoom";
 import CinematicCamera, { MAX_POLAR_ANGLE, MIN_DISTANCE } from "./CinematicCamera";
 import { useArafaStore } from "@/store/useArafaStore";
 import { getArafatHour, getSkyState } from "@/utils/astronomy";
@@ -219,19 +218,13 @@ export default function MapScene({ hourOverride }: MapSceneProps) {
         <TentCamp />
         {/* Inside Suspense so the sweep starts only once the mountain has loaded. */}
         <CinematicCamera />
-        <DoubleClickZoom />
       </Suspense>
 
       {/*
-        OrbitControls configured as a 3D map (native three.js physics, no custom gesture code):
-          left-drag  = pan across the real XZ ground plane (screenSpacePanning off)
-          right-drag = orbit / tilt        middle-drag / wheel = dolly (zoom)
-          Ctrl / ⌘ / Shift + left-drag = rotate too (native OrbitControls, for trackpads without a right button)
-          double-click = glide closer to the target (<DoubleClickZoom />)
-          touch: one finger = pan, two fingers = pinch-zoom + rotate
-        Tilt: straight down (0) … just above the horizon. Distance: street level (0.5) … macro (200).
-        CinematicCamera relaxes the polar / distance minimum on hand-over so a cinematic view that
-        violates them never snaps.
+        Native OrbitControls behaviour (left = orbit, right = pan, wheel = zoom), no custom mappings
+        or gesture code. Only protections: the camera never goes under the ground (polar limit) and
+        stays between street level (0.5) and the macro view (200). CinematicCamera relaxes the polar /
+        distance limits on hand-over so a cinematic view that violates them never snaps.
       */}
       <OrbitControls
         makeDefault
@@ -239,17 +232,11 @@ export default function MapScene({ hourOverride }: MapSceneProps) {
         enablePan
         enableZoom
         enableRotate
-        screenSpacePanning={false}
         enableDamping
         dampingFactor={0.05}
-        minAzimuthAngle={-Infinity}
-        maxAzimuthAngle={Infinity}
-        minPolarAngle={0}
         maxPolarAngle={MAX_POLAR_ANGLE}
         minDistance={MIN_DISTANCE}
         maxDistance={200}
-        mouseButtons={{ LEFT: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY }}
-        touches={{ ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE }}
         // No `target` prop on purpose: CinematicCamera keeps controls.target in sync with its
         // gaze, and re-applying a fixed target on the hand-over re-render would make the view jump.
       />
