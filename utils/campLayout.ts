@@ -162,6 +162,17 @@ const ROOF_RISE_MAX_M = 2.6;
 /** Sanitary blocks: flat-roofed, a bit lower than the tents. */
 export const SANITARY_HEIGHT_M = 2.6;
 
+/** Roof rise of a tent, metres (ridge height above the walls). */
+function roofRiseM(tent: BlueprintBuilding): number {
+  const shortM = Math.min(tent.width, tent.depth);
+  return Math.min(ROOF_RISE_MAX_M, Math.max(ROOF_RISE_MIN_M, ROOF_RISE_PER_SHORT_SIDE * shortM));
+}
+
+/** Height of a tent's ridge above the ground, world units (walls + roof rise). */
+export function tentHeightUnits(tent: BlueprintBuilding): number {
+  return (WALL_HEIGHT_M + roofRiseM(tent)) * METERS_TO_UNITS;
+}
+
 export const TENT_COUNT = BLUEPRINT_LAYOUT.length;
 export const SANITARY_COUNT = SANITARY_LAYOUT.length;
 
@@ -261,9 +272,7 @@ export function buildTentBuffers(layout: readonly BlueprintBuilding[] = BLUEPRIN
     scale.set(w, wallH, d);
     m.compose(position, upright, scale).toArray(wallMatrices, n * 16);
 
-    const shortM = Math.min(tent.width, tent.depth);
-    const rise =
-      Math.min(ROOF_RISE_MAX_M, Math.max(ROOF_RISE_MIN_M, ROOF_RISE_PER_SHORT_SIDE * shortM)) * METERS_TO_UNITS;
+    const rise = roofRiseM(tent) * METERS_TO_UNITS;
     position.set(f.x, GROUND_Y + wallH, f.z);
     if (tent.width >= tent.depth) {
       scale.set(w, rise, d);

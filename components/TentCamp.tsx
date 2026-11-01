@@ -5,6 +5,7 @@ import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { useArafaStore } from "@/store/useArafaStore";
+import { TentLabels } from "./CampOverlays";
 import { SANITARY_COUNT, buildSanitaryMatrices, buildTentBuffers } from "@/utils/campLayout";
 
 export const TENT_MODEL_URL = "/models/tent.glb";
@@ -15,11 +16,12 @@ const CANVAS_ROUGHNESS = 0.95;
 const CANVAS_METALNESS = 0.0;
 
 /**
- * Selection highlight: an `instanceColor` multiplier (it multiplies the canvas colour). A pale,
- * slightly luminous ice-white – cooler and a touch brighter than the warm canvas, never saturated,
- * so it reads as architectural emphasis rather than a pointer.
+ * Selection highlight: an `instanceColor` multiplier (it multiplies the canvas colour). A distinct
+ * glowing sky-blue (≈ #0ea5e9 hue) with the blue channel pushed above 1.0: lit by the sun the roof
+ * climbs past Bloom's luminance threshold and gets a subtle glow, while the unselected tents keep
+ * their plain canvas tint.
  */
-const HIGHLIGHT_RGB = [0.82, 1.0, 1.1] as const;
+const HIGHLIGHT_RGB = [0.1, 0.6, 1.2] as const;
 /** Seconds the highlight takes to fade in / out. */
 const HIGHLIGHT_FADE_S = 0.5;
 
@@ -234,6 +236,7 @@ export default function TentCamp() {
         castShadow
         receiveShadow
       />
+      <TentLabels />
     </>
   );
 }

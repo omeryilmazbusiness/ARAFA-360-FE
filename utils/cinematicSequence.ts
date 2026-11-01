@@ -1,7 +1,8 @@
 import { CatmullRomCurve3, MathUtils, Vector3 } from "three";
+import { BLUEPRINT_ORIGIN, METERS_TO_UNITS } from "./campLayout.ts";
 
 /**
- * Pure math for the looping four-shot cinematic sequence (no React / R3F, no allocations in the
+ * Pure math for the looping six-shot cinematic sequence (no React / R3F, no allocations in the
  * per-frame path).
  *
  * World facts the shots are built around (measured from `public/models/arafat.glb` after
@@ -138,6 +139,148 @@ const ESTABLISH_ANGLE0 = PULLBACK_ANGLE;
 const ASCENT_BEARING = Math.atan2(ASCENT_PATH.points[0].x, ASCENT_PATH.points[0].z);
 const ESTABLISH_ANGLE_RATE = wrapTau(ASCENT_BEARING - ESTABLISH_ANGLE0) / ESTABLISH_DURATION;
 
+/* ────────────────── shots 5 + 6 · rooftop skimmer & avenue glide ────────────────── */
+
+/**
+ * ONE continuous drone flight through the tent camp, split into two shots. World scale: a tent
+ * ridge is ≤ 0.224 units high (5.6 m) and the corridors are 0.18–0.34 units (4.5–8.5 m) wide.
+ *
+ *   Skimmer  – comes in from the south, then flies north along the camp's west flank just above
+ *              the roofs (y = 0.34, ≈ 3 m over the highest ridge) with the gaze turned in over the
+ *              tents to show their scale.
+ *   Glide    – a banking right-hand turn drops it into the avenue between the FATEH and NAAFY
+ *              blocks (plan z = −47.25 m, 4.5 m wide) and it glides east, eye-level of the
+ *              walls (y = 0.13 ≈ 3 m), looking straight down the corridor at the mountain.
+ *
+ * Both shots sample the same arc-length path, so the cross-fade between them is the identity
+ * (the extrapolated pre-roll of the Glide lies on the very same curve the Skimmer is flying).
+ */
+const DRONE_SKIM_X = -11.0; // over the westernmost tents
+const DRONE_SKIM_Y = 0.34;
+const DRONE_GLIDE_Y = 0.13;
+const DRONE_TURN_RADIUS = 0.8;
+/** World z of the avenue's centre line (plan z = −47.25 m, the empty band between FATEH and NAAFY). */
+const AVENUE_Z = BLUEPRINT_ORIGIN.z + -47.25 * METERS_TO_UNITS;
+/** Where the banked turn begins (the path is heading north, −z, until here). */
+const TURN_Z = AVENUE_Z + DRONE_TURN_RADIUS;
+
+const dronePoints: Vector3[] = [
+  new Vector3(DRONE_SKIM_X, DRONE_SKIM_Y, 9.5), // south of the camp
+  new Vector3(DRONE_SKIM_X, DRONE_SKIM_Y, 6.5),
+  new Vector3(DRONE_SKIM_X, DRONE_SKIM_Y, 3.5),
+  new Vector3(DRONE_SKIM_X, DRONE_SKIM_Y, 0.5),
+  new Vector3(DRONE_SKIM_X, DRONE_SKIM_Y, TURN_Z + 1.4),
+];
+// Quarter circle (right-hand turn from heading north to heading east) that also sinks into the avenue.
+for (let k = 0; k <= 4; k++) {
+  const theta = Math.PI + (k / 4) * (Math.PI / 2);
+  dronePoints.push(
+    new Vector3(
+      DRONE_SKIM_X + DRONE_TURN_RADIUS + Math.cos(theta) * DRONE_TURN_RADIUS,
+      MathUtils.lerp(DRONE_SKIM_Y, DRONE_GLIDE_Y, smootherstep(k / 4)),
+      TURN_Z + Math.sin(theta) * DRONE_TURN_RADIUS
+    )
+  );
+}
+// Straight down the avenue, towards the mountain (the path stops ≈ 1.8 units short of its foot).
+dronePoints.push(
+  new Vector3(-8.6, DRONE_GLIDE_Y, AVENUE_Z),
+  new Vector3(-7.0, DRONE_GLIDE_Y + 0.01, AVENUE_Z),
+  new Vector3(-5.8, DRONE_GLIDE_Y + 0.02, AVENUE_Z)
+);
+const DRONE_PATH = new CatmullRomCurve3(dronePoints, false, "centripetal");
+// Fine arc-length table: with the default 200 divisions the speed along the path visibly jitters.
+DRONE_PATH.arcLengthDivisions = 4000;
+DRONE_PATH.updateArcLengths();
+const DRONE_LENGTH = DRONE_PATH.getLength();
+/** Path distance at which the turn starts (the preceding part is a straight line). */
+const DRONE_TURN_D = droneLengthUpTo(dronePoints, 4);
+function droneLengthUpTo(pts: Vector3[], upTo: number) {
+  let d = 0;
+  for (let i = 0; i < upTo; i++) d += pts[i].distanceTo(pts[i + 1]);
+  return d;
+}
+const DRONE_START_TANGENT = DRONE_PATH.getTangentAt(0, new Vector3());
+const DRONE_END_TANGENT = DRONE_PATH.getTangentAt(1, new Vector3());
+const DRONE_END = DRONE_PATH.getPointAt(1, new Vector3());
+
+/** How far ahead along the path the camera looks, and the gaze offsets (see `dronePose`). */
+const DRONE_LOOK_AHEAD = 2.4;
+const DRONE_SKIM_PITCH_DROP = 0.2; // gaze this much lower than the path while skimming
+const DRONE_SKIM_YAW_BIAS = 1.3; // gaze this far towards the camp (+x) while skimming
+
+const _dp = new Vector3();
+
+/** Path position at distance `d` (straight-line extrapolation before the start / after the end). */
+function dronePointAt(d: number, out: Vector3): Vector3 {
+  if (d <= 0) return out.copy(dronePoints[0]).addScaledVector(DRONE_START_TANGENT, d);
+  if (d >= DRONE_LENGTH) return out.copy(DRONE_END).addScaledVector(DRONE_END_TANGENT, d - DRONE_LENGTH);
+  return DRONE_PATH.getPointAt(d / DRONE_LENGTH, out);
+}
+
+/** Camera pose at path distance `d`: on the path, gaze `DRONE_LOOK_AHEAD` further along it. */
+function dronePose(d: number, out: Pose) {
+  dronePointAt(d, _dp);
+  out.px = _dp.x;
+  out.py = _dp.y;
+  out.pz = _dp.z;
+  dronePointAt(d + DRONE_LOOK_AHEAD, _dp);
+  // The skimmer's gaze is tilted down and in over the roofs; both ease out in the turn, so in the
+  // avenue the camera looks dead straight down the corridor.
+  const skim = 1 - smootherstep((d - (DRONE_TURN_D - 2.5)) / 3.5);
+  out.tx = _dp.x + DRONE_SKIM_YAW_BIAS * skim;
+  out.ty = _dp.y - DRONE_SKIM_PITCH_DROP * skim;
+  out.tz = _dp.z;
+}
+
+/**
+ * Speed profile of the flight (units/s): cruising over the roofs, easing down through the banked
+ * turn into a slow glide down the avenue. Integrated once into a time → distance table, so BOTH
+ * shots read the same clock-to-distance function and the cross-fade between them is seamless.
+ */
+const SKIM_SPEED = 1.2; // ≈ 30 m/s
+const GLIDE_SPEED = 0.45; // ≈ 11 m/s
+const SLOW_START_D = DRONE_TURN_D - 1.0;
+const SLOW_LENGTH_D = 3.0;
+const speedAt = (d: number) =>
+  MathUtils.lerp(SKIM_SPEED, GLIDE_SPEED, smootherstep((d - SLOW_START_D) / SLOW_LENGTH_D));
+
+/** Time constant of the braking after the avenue's end (s). */
+const COAST_TAU = 2;
+const TABLE_STEP = 0.02; // units of path distance per table row
+const TABLE_ROWS = Math.ceil(DRONE_LENGTH / TABLE_STEP) + 1;
+/** `DRONE_TIME[i]` = seconds of flight needed to reach distance `i * TABLE_STEP`. */
+const DRONE_TIME = new Float64Array(TABLE_ROWS);
+for (let i = 1; i < TABLE_ROWS; i++) {
+  const dMid = (i - 0.5) * TABLE_STEP;
+  DRONE_TIME[i] = DRONE_TIME[i - 1] + TABLE_STEP / speedAt(dMid);
+}
+const DRONE_TIME_END = DRONE_TIME[TABLE_ROWS - 1];
+const DRONE_D_END = (TABLE_ROWS - 1) * TABLE_STEP;
+
+/** Path distance reached after `t` seconds of flight (cruise speed before / glide speed after the table). */
+function droneDistanceAt(t: number): number {
+  if (t <= 0) return SKIM_SPEED * t;
+  // Past the end of the path the drone coasts to a hover (exponential brake: no kink at the join).
+  if (t >= DRONE_TIME_END) return DRONE_D_END + GLIDE_SPEED * COAST_TAU * (1 - Math.exp(-(t - DRONE_TIME_END) / COAST_TAU));
+  let lo = 0;
+  let hi = TABLE_ROWS - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (DRONE_TIME[mid] <= t) lo = mid;
+    else hi = mid;
+  }
+  const f = (t - DRONE_TIME[lo]) / (DRONE_TIME[hi] - DRONE_TIME[lo]);
+  return (lo + f) * TABLE_STEP;
+}
+
+/** The hand-over between the two shots sits just inside the start of the banked turn. */
+const SKIM_DURATION = DRONE_TIME[Math.round((DRONE_TURN_D + 0.4) / TABLE_STEP)];
+/** Seconds the glide hands over to the establishing orbit (the climb-out). */
+const GLIDE_TRANSITION = 9;
+/** The climb-out starts exactly where the avenue ends, so the camera is still low only inside the street. */
+const GLIDE_DURATION = DRONE_TIME_END - SKIM_DURATION + GLIDE_TRANSITION;
+
 /* ───────────────────────────────── the sequence ───────────────────────────────── */
 
 export const SHOTS: readonly Shot[] = [
@@ -202,6 +345,20 @@ export const SHOTS: readonly Shot[] = [
       o.ty = MathUtils.lerp(MONUMENT_MID_Y, MOUNTAIN_CENTER_Y, e);
       o.tz = MathUtils.lerp(MONUMENT_Z, 0, e);
     },
+  },
+
+  // 5 · Rooftop Skimmer – dives out of the high view and skims the roofs along the camp's flank.
+  {
+    duration: SKIM_DURATION,
+    transition: 3,
+    sample: (s, o) => dronePose(droneDistanceAt(s), o),
+  },
+
+  // 6 · Avenue Glide – banks into the FATEH | NAAFY avenue and glides down it towards the mountain.
+  {
+    duration: GLIDE_DURATION,
+    transition: GLIDE_TRANSITION, // climbs out of the street into the wide establishing orbit
+    sample: (s, o) => dronePose(droneDistanceAt(SKIM_DURATION + s), o),
   },
 ];
 

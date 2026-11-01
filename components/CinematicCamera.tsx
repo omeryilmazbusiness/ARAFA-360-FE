@@ -1,6 +1,6 @@
 "use client";
 
-import { type ComponentRef, useRef } from "react";
+import { type ComponentRef, useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import type { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
@@ -13,6 +13,13 @@ import {
   wrapPi,
   type Pose,
 } from "@/utils/cinematicSequence";
+
+/** Keeps the manual camera above the ground plane (tilt limit). */
+export const MAX_POLAR_ANGLE = Math.PI / 2 - 0.05;
+/** Closest the manual camera may get to its target (units; 1 unit = 25 m). */
+export const MIN_DISTANCE = 0.5;
+/** How fast (1/s) the polar / distance limits are re-imposed after a hand-over that violates them. */
+const POLAR_RELAX_RATE = 1.5;
 
 /** Seconds to ease in from wherever the camera currently is (e.g. after manual control). */
 const ENTRY_DURATION = 3;
@@ -56,8 +63,42 @@ export default function CinematicCamera() {
   const scratch = useRef(makePose());
   const eased = useRef(makePose());
 
+  // The cinematic owns the camera with OrbitControls disabled, so the first touch of the canvas
+  // (press or wheel) hands the view to the user – otherwise the scene feels "locked" until the
+  // Take-control pill is found. The gesture that triggers it only hands over; the next one navigates.
+  const gl = useThree((s) => s.gl);
+  useEffect(() => {
+    const el = gl.domElement;
+    const handOver = () => {
+      if (useArafaStore.getState().cinematicMode) useArafaStore.getState().takeControl();
+    };
+    el.addEventListener("pointerdown", handOver, { passive: true });
+    el.addEventListener("wheel", handOver, { passive: true });
+    return () => {
+      el.removeEventListener("pointerdown", handOver);
+      el.removeEventListener("wheel", handOver);
+    };
+  }, [gl]);
+
   useFrame((state, delta) => {
     if (!useArafaStore.getState().cinematicMode) {
+      if (controls) {
+        if (wasActive.current) {
+          // Hand-over: shots such as the Ascent look UP at their target, i.e. sit beyond the polar
+          // limit. Start from the current tilt and tighten the limit gradually instead of snapping.
+          controls.maxPolarAngle = Math.max(MAX_POLAR_ANGLE, controls.getPolarAngle());
+          // Same for the zoom limit: the close summit / ascent views sit nearer than MIN_DISTANCE.
+          controls.minDistance = Math.min(MIN_DISTANCE, controls.getDistance());
+        }
+        if (controls.minDistance < MIN_DISTANCE) {
+          controls.minDistance = THREE.MathUtils.damp(controls.minDistance, MIN_DISTANCE, POLAR_RELAX_RATE, delta);
+          if (MIN_DISTANCE - controls.minDistance < 1e-3) controls.minDistance = MIN_DISTANCE;
+        }
+        if (controls.maxPolarAngle > MAX_POLAR_ANGLE) {
+          controls.maxPolarAngle = THREE.MathUtils.damp(controls.maxPolarAngle, MAX_POLAR_ANGLE, POLAR_RELAX_RATE, delta);
+          if (controls.maxPolarAngle - MAX_POLAR_ANGLE < 1e-3) controls.maxPolarAngle = MAX_POLAR_ANGLE;
+        }
+      }
       wasActive.current = false;
       return;
     }
